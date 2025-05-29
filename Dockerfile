@@ -1,3 +1,4 @@
+#base image
 FROM ghcr.io/chia-network/chia:latest
 
 # Install Node.js
