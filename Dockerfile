@@ -11,9 +11,10 @@ RUN apt-get update && apt-get install -y curl gnupg && \
 WORKDIR /app
 
 # Copy Next.js files
-COPY simulator-ui/package*.json ./
+COPY . ./
+WORKDIR /app/simulator-ui
 RUN npm install
-COPY simulator-ui .
+
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh

@@ -8,7 +8,7 @@ sleep 2
 echo 'chainging chia_root to /root/.chia/simulator/main'
 export CHIA_ROOT=/root/.chia/simulator/main
 
-cho "[+] Starting simulator..."
+echo "[+] Starting simulator..."
 chia dev sim start &
 
 chia start wallet &
@@ -17,4 +17,5 @@ chia start wallet &
 # Step 5: Start Next.js
 sleep 2
 echo "[+] Starting Next.js..."
+npm install &&
 npm run dev
