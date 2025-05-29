@@ -5,10 +5,10 @@ echo "[+] Creating simulator DB"
 chia dev sim create <<< "g"
 
 sleep 2
+echo 'chainging chia_root to /root/.chia/simulator/main'
 export CHIA_ROOT=/root/.chia/simulator/main
 
-# # Step 4: Start simulator in background
-# echo "[+] Starting simulator..."
+cho "[+] Starting simulator..."
 chia dev sim start &
 
 chia start wallet &
