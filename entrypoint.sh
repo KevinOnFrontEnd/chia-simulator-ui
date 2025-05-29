@@ -2,7 +2,10 @@
 set -e
 
 echo "[+] Creating simulator DB"
-chia dev sim create <<< ""
+chia dev sim create <<< "g"
+
+sleep 2
+export CHIA_ROOT=/root/.chia/simulator/main
 
 # # Step 4: Start simulator in background
 # echo "[+] Starting simulator..."

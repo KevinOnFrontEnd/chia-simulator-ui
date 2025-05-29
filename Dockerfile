@@ -1,4 +1,4 @@
-FROM ghcr.io/chia-network/chia-simulator:latest
+FROM ghcr.io/chia-network/chia:latest
 
 # Install Node.js
 RUN apt-get update && apt-get install -y curl gnupg && \
