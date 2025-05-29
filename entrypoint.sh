@@ -9,6 +9,7 @@ echo 'chainging chia_root to /root/.chia/simulator/main'
 export CHIA_ROOT=/root/.chia/simulator/main
 
 echo "[+] Starting simulator..."
+
 chia dev sim start &
 
 chia start wallet &
