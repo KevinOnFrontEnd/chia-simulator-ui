@@ -70,57 +70,58 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
         let newParameter = {};
         try {
             switch (parameterType) {
-                case "SHA256": {
-                    const textAtom = clvm.string(parameterValue);
-                    const hashBytes = sha256(textAtom.toAtom());
-                    const hash = clvm.atom(hashBytes);
-                    newParameter = {
-                        type: "SHA256",
-                        value: hash,
-                        originalValue: parameterValue,
-                    };
-                    break;
-                }
-                case "Text": {
-                        const hashBytes1 = clvm.string(parameterValue).toAtom();
+              case 'SHA256': {
+                const textAtom = clvm.string(parameterValue);
+                const hashBytes = sha256(textAtom.toAtom());
+                const hash = clvm.atom(hashBytes);
+                newParameter = {
+                  type: 'SHA256',
+                  value: hash,
+                  originalValue: parameterValue,
+                };
+                break;
+              }
+              case 'Text': {
+                const hashBytes1 = clvm.string(parameterValue).toAtom();
 
-    const hashAtom1 = clvm.atom(hashBytes1);
+                const hashAtom1 = clvm.atom(hashBytes1);
 
-                    newParameter = {
-                        type: "Text",
-                        value: hashAtom1,
-                        originalValue: parameterValue,
-                    };
-                    break;
-                }
-                case "Nil":
-                    newParameter = { type: "Nil", value: "value does not matter" };
-                    break;
-                case "Bool":
-                    newParameter = {
-                        type: "Bool",
-                        value: clvm.bool(parameterValue),
-                        originalValue: parameterValue,
-                    };
-                    break;
-                case "Int": {
-                    const val = parseInt(parameterValue);
-                    if (isNaN(val)) return;
-                    newParameter = { type: "Int", value: clvm.int(val) };
-                    break;
-                }
-                case "Address": {
-                    const hash = Address.decode(parameterValue).puzzleHash;
-                    const s = toHex(hash);
-                    const hashProgram = clvm.atom(s);
-                    newParameter = {
-                        type: "Address",
-                        value: hashProgram,
-                        originalValue: parameterValue,
-                        puzzleHashHex: s,
-                    };
-                    break;
-                }
+                newParameter = {
+                  type: 'Text',
+                  value: hashAtom1,
+                  originalValue: parameterValue,
+                };
+                break;
+              }
+              case 'Nil':
+                newParameter = { type: 'Nil', value: 'value does not matter' };
+                break;
+              case 'Bool':
+                newParameter = {
+                  type: 'Bool',
+                  value: clvm.bool(parameterValue),
+                  originalValue: parameterValue,
+                };
+                break;
+              case 'Int': {
+                const val = parseInt(parameterValue);
+                if (isNaN(val)) return;
+                newParameter = { type: 'Int', value: clvm.int(val) };
+                break;
+              }
+              case 'Address': {
+                const hash = Address.decode(parameterValue).puzzleHash; // Uint8Array
+                const hashProgram = clvm.atom(hash); // ✅ use bytes directly, NOT hex
+                const s = toHex(hash); // only for display purposes
+
+                newParameter = {
+                  type: 'Address',
+                  value: hashProgram,
+                  originalValue: parameterValue,
+                  puzzleHashHex: s,
+                };
+                break;
+              }
             }
         } catch (err) {
             alert("Invalid input or type error");

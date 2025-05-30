@@ -42,4 +42,4 @@ docker run --name sim -p 3000:3000 chia-simulator-ui
 
 Once the container is running, open your browser and go to: http://localhost:3000
 
-![alt text](screenshot.png)
+![alt text](image.png)
