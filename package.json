@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "chia-wallet-sdk": "^0.24.0",
-    "chia-wallet-sdk-wasm": "^0.24.0"
-  }
-}
