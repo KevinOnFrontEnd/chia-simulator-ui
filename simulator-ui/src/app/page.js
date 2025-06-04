@@ -1,280 +1,277 @@
 'use client';
-import { useState, useEffect } from 'react';
-import Output from "./components/output"
-import Parameters from "./components/parameters";
-import { PlayIcon } from "@heroicons/react/24/solid";
+import { useState, useEffect, useRef } from 'react';
 import * as sdk from 'chia-wallet-sdk-wasm';
+import dynamic from 'next/dynamic';
+import * as monaco from 'monaco-editor';
+import Parameters from './components/parameters';
+import TopMenuBar from './components/topmenu';
 import { compileProgram } from './ChiaCompiler';
+import TerminalPanel from './components/terminal'; // Adjust path if needed
+import Output from './components/output';
+
+// Dynamic import for Monaco Editor
+const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+});
+
+// Register Chialisp language
+function registerChialisp(monacoInstance) {
+  monacoInstance.languages.register({ id: 'chialisp' });
+
+  monacoInstance.languages.setMonarchTokensProvider('chialisp', {
+    tokenizer: {
+      root: [
+        [/\b(mod|defun|let|if|quote|lambda|include)\b/, 'keyword'],
+        [/\b(true|false|nil)\b/, 'constant'],
+        [/[()]/, 'delimiter'],
+        [/\b\d+\b/, 'number'],
+        [/"[^"]*"/, 'string'],
+        [/[a-zA-Z_+\-*\/=<>!?$%&|^~]+/, 'identifier'],
+      ],
+    },
+  });
+
+  monacoInstance.languages.setLanguageConfiguration('chialisp', {
+    comments: {
+      lineComment: ';',
+    },
+    brackets: [['(', ')']],
+  });
+}
 
 export default function Home() {
-  const [currentBlockHeight, setCurrentBlockHeight] = useState(0);
-  const [command, setCommand] = useState('');
-  const [output, setOutput] = useState('');
+  const editorRef = useRef(null);
+
+  const [programSource, setProgramSource] = useState('');
   const [programParameters, setProgramParameters] = useState([]);
-  const [programCurriedParameters, setProgramCurriedParameters] = useState([]); // Curried Parameters State
+  const [programCurriedParameters, setProgramCurriedParameters] = useState([]);
+  const [currentBlockHeight, setCurrentBlockHeight] = useState(0);
+  const [currentAddress, setCurrentAddress] = useState('');
+
   const [history, setHistory] = useState([]);
-  const [programSource, setProgramSource] = useState(''); //raw source text
-  const [conditions, setConditions] = useState(''); //raw output from running program
+  const [conditions, setConditions] = useState('');
   const [compiledProgram, setCompiledProgram] = useState(null);
   const [compiledProgramText, setCompiledProgramText] = useState('');
   const [cost, setCost] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [copyText, setCopyText] = useState('Copy Source');
-
-  //outputs
   const [puzzleHash, setPuzzleHash] = useState('');
   const [puzzleAddress, setPuzzleAddress] = useState('');
-  const [deployPopup, setDeployPopup] = useState(false);
-  const [valueToSend, setValueToSend] = useState('');
+  const [activeTab, setActiveTab] = useState('output');
 
-  const runCommand = async () => {
-    if (!command.trim()) return;
+  useEffect(() => {
+    fetchBlockHeight();
+    fetchCurrentAddress();
+  }, []);
 
-    const res = await fetch('/api/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
-    });
-
-    const data = await res.json();
-    setOutput(data.output || data.error || 'No output');
-    setCommand('');
+  const fetchCurrentAddress = async () => {
+    try {
+      const res = await fetch('/api/address');
+      const data = await res.json();
+      if (data.address) {
+        setCurrentAddress(data.address);
+      }
+    } catch (err) {
+      console.error('Address fetch error:', err);
+    }
   };
 
   const fetchBlockHeight = async () => {
     try {
-      const response = await fetch('/api/blockheight');
-      const data = await response.json();
-      if (data.output !== undefined) {
-        const height = parseInt(data.output, 10);
-        setCurrentBlockHeight(height);
+      const res = await fetch('/api/blockheight');
+      const data = await res.json();
+      if (data.output) {
+        setCurrentBlockHeight(parseInt(data.output));
       }
-    } catch (error) {
-      console.error('Failed to fetch block height:', error);
+    } catch (err) {
+      console.error('Block height error:', err);
     }
   };
 
   const nextBlock = async () => {
     try {
-      const response = await fetch('/api/nextblock', { method: 'POST' });
-      const data = await response.json();
-      if (data.error) {
-        console.error('Error farming block:', data.error);
-      } else {
-        console.log('Next block:', data.message);
-        await fetchBlockHeight(); // update the height after farming
-      }
-    } catch (error) {
-      console.error('Failed to farm next block:', error);
+      const res = await fetch('/api/nextblock', { method: 'POST' });
+      const data = await res.json();
+      await fetchBlockHeight();
+    } catch (err) {
+      console.error('Next block error:', err);
     }
   };
-
-  useEffect(() => {
-    fetchBlockHeight();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'F8') {
-        event.preventDefault(); // Prevent any default browser behavior
-        handleCompileAndRun();
-      }
-
-      if (event.key === 'F9') {
-        event.preventDefault();
-        nextBlock();
-        fetchBlockHeight();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-
-    // Cleanup listener on component unmount
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [programSource, programParameters, programCurriedParameters]); // Dependencies to ensure latest state
 
   const handleCompileAndRun = () => {
     try {
-      if (programSource !== '') {
-        const clvm = new sdk.Clvm();
-        let curriedvalues = (programCurriedParameters ?? []).map((param) => {
-          switch (param.type) {
-            case 'Text':
-              return param.value; // Use raw atom
-            case 'Int':
-              return clvm.int(param.value?.toInt() ?? 0);
-            case 'SHA256':
-            case 'Address':
-            case 'Bool':
-              return param.value;
-            case 'Nil':
-              return clvm.nil();
-            default:
-              return param.value;
-          }
-        });
+      const source = editorRef.current?.getValue() ?? '';
 
-        let values = (programParameters ?? []).map((param) => {
-          switch (param.type) {
-            case 'Text':
-              return param.value; // Use raw atom
-            case 'Int':
-              return clvm.int(param.value?.toInt() ?? 0);
-            case 'SHA256':
-            case 'Address':
-            case 'Bool':
-              return param.value;
-            case 'Nil':
-              return clvm.nil();
-            default:
-              return param.value;
-          }
-        });
+      console.log(source);
 
-        let result = compileProgram(
-          programSource,
-          curriedvalues,
-          values,
-          'txch'
-        );
+      if (!source) return;
 
-        // Create history item
-        const historyItem = {
-          id: Date.now(),
-          date: new Date()
-            .toLocaleString('en-GB', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false,
-            })
-            .replace(',', ''), // Format: "05/19/2025 11:27:01"
-          source: programSource,
-          output: result.errorMessage ? 'Failed' : result.conditions.unparse(),
-          errorMessage: result.errorMessage || '',
-          cost: result.cost,
-        };
+      setProgramSource(source);
 
-        // Update history state
-        setHistory((prevHistory) => [...prevHistory, historyItem]);
+      const clvm = new sdk.Clvm();
 
-        setCost(result.cost);
-        setConditions(result.conditions);
-        setPuzzleHash(result.puzzleHash);
-        setErrorMessage(result.errorMessage);
-        setPuzzleAddress(result.puzzleAddress);
-      }
+      const curried = programCurriedParameters.map((param) => {
+        if (param.type === 'Text') return param.value;
+        if (param.type === 'Int') return clvm.int(param.value?.toInt() ?? 0);
+        if (param.type === 'Nil') return clvm.nil();
+        return param.value;
+      });
+
+      const params = programParameters.map((param) => {
+        if (param.type === 'Text') return param.value;
+        if (param.type === 'Int') return clvm.int(param.value?.toInt() ?? 0);
+        if (param.type === 'Nil') return clvm.nil();
+        return param.value;
+      });
+
+      const result = compileProgram(source, curried, params, 'txch');
+
+      const historyItem = {
+        id: Date.now(),
+        date: new Date()
+          .toLocaleString('en-GB', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+          })
+          .replace(',', ''),
+        source,
+        output: result.errorMessage ? 'Failed' : result.conditions.unparse(),
+        errorMessage: result.errorMessage || '',
+        cost: result.cost,
+      };
+
+      setHistory((prev) => [...prev, historyItem]);
+      setCost(result.cost);
+      setConditions(result.conditions);
+      setPuzzleHash(result.puzzleHash);
+      setErrorMessage(result.errorMessage);
+      setPuzzleAddress(result.puzzleAddress);
     } catch (e) {
-      console.log(e);
+      console.error('Compile error:', e);
     }
   };
 
-  const handleCopy = (e) => {
-    e.preventDefault(); // Prevent the default anchor behavior
-    navigator.clipboard.writeText(programSource);
-    setCopyText('Copied'); // Change text to Copied!
+  const handleEditorDidMount = (editor, monacoInstance) => {
+    editorRef.current = editor;
 
-    setTimeout(() => {
-      setCopyText('Copy Source'); // Change it back after 5 seconds
-    }, 5000);
-  };
-
-  const handleCloseCoinSpendDialog = () => {
-    setIsSpendCoinModalVisable(false);
+    registerChialisp(monacoInstance);
+    editor.addCommand(monacoInstance.KeyCode.F9, () => {
+      nextBlock();
+      fetchBlockHeight();
+    });
   };
 
   return (
-    <div className="min-h-screen bg-black text-green-400 p-8 font-mono">
-      <h1 className="text-xl text-center mb-4">Chia Simulator Terminal</h1>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl">Current Block Height: {currentBlockHeight}</h1>
-        <button
-          className="bg-blue-600 text-white font-bold px-4 py-1 rounded hover:bg-blue-500"
-          onClick={nextBlock}
-        >
-          Next Block (F9)
-        </button>
+    <div className="min-h-screen bg-[#252526] text-white">
+      <TopMenuBar
+        onRun={handleCompileAndRun}
+        onNextBlock={() => {
+          nextBlock();
+          fetchBlockHeight();
+        }}
+        onSave={() => {
+          const source = editorRef.current?.getValue() ?? '';
+          const blob = new Blob([source], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'program.clsp';
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+      />
+      {/* Status Bar Below Top Menu */}
+      <div className="flex justify-end items-center gap-6 px-4 py-1 bg-[#252526] text-sm text-gray-400 border-b border-[#333]">
+        <div>
+          <span className="text-white">Current Block:</span>{' '}
+          {currentBlockHeight ?? '...'}
+        </div>
+        <div>
+          <span className="text-white">Current Address:</span>{' '}
+          {currentAddress || '...'}
+        </div>
       </div>
-
-      <div className="bg-gray-900 rounded-md p-4 h-[300px] overflow-auto mb-4 border border-green-600">
-        <pre className="whitespace-pre-wrap">{output}</pre>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <span className="text-green-400">$</span>
-        <input
-          className="flex-1 bg-black border border-green-400 px-2 py-1 rounded text-green-300 placeholder-gray-400 outline-none"
-          value={command}
-          onChange={(e) => setCommand(e.target.value)}
-          placeholder="e.g. chia dev sim farm --blocks 10"
-          onKeyDown={(e) => e.key === 'Enter' && runCommand()}
-        />
-        <button
-          className="bg-green-600 text-black font-bold px-4 py-1 rounded hover:bg-green-500"
-          onClick={runCommand}
-        >
-          Execute
-        </button>
-      </div>
-
-      <div className="flex flex-wrap md:flex-nowrap gap-6 my-8">
-        {/* Source Editor */}
-        <div className="flex-1 min-w-[300px]">
-          <div className="text-center p-4 bg-gray-200 rounded-t-md">
-            <h1 className="text-xl font-bold">Source</h1>
+      <div className="flex flex-col h-[calc(100vh-48px)]">
+        {/* Main Panels */}
+        <div className="flex flex-row flex-grow overflow-hidden">
+          {/* Parameters */}
+          <div className="w-[33%] min-w-[300px] max-w-[400px] overflow-hidden">
+            <Parameters
+              setProgramParameters={setProgramParameters}
+              setProgramCurriedParameters={setProgramCurriedParameters}
+            />
           </div>
 
-          <textarea
-            id="source"
-            value={programSource}
-            onChange={(e) => setProgramSource(e.target.value)}
-            placeholder="Enter source code..."
-            rows="15"
-            className="w-full p-4 text-base border border-gray-300 rounded-b-md resize-none"
-          />
+          {/* Editor */}
+          <div className="w-2/3 bg-[#1e1e1e] p-4 text-white">
+            <h2 className="text-lg font-semibold mb-4">Source Code</h2>
+            <div className="h-full border border-[#444] rounded overflow-hidden">
+              <MonacoEditor
+                defaultLanguage="chialisp"
+                theme="vs-dark"
+                defaultValue={programSource}
+                onMount={handleEditorDidMount}
+                options={{
+                  fontSize: 13,
+                  minimap: { enabled: false },
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                  automaticLayout: true,
+                  fontFamily: 'monospace',
+                  padding: { top: 10, bottom: 10 },
+                }}
+              />
+            </div>
+          </div>
+        </div>
 
-          <div className="flex items-center justify-between mt-2">
+        <div className="bg-[#1e1e1e] border-t border-[#333] p-4">
+          {/* Tabs */}
+          <div className="flex border-b border-[#333] mb-2">
             <button
-              onClick={handleCompileAndRun}
-              className="flex items-center px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-200"
+              onClick={() => setActiveTab('output')}
+              className={`px-4 py-2 text-sm font-medium ${
+                activeTab === 'output'
+                  ? 'bg-[#2d2d2d] text-white border-b-2 border-blue-600'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
             >
-              <PlayIcon className="w-5 h-5 mr-2" />
-              Run (F8)
+              Output
             </button>
-            <a
-              href="#copy"
-              onClick={handleCopy}
-              className="text-gray-500 hover:text-gray-700 text-sm"
+            <button
+              onClick={() => setActiveTab('terminal')}
+              className={`px-4 py-2 text-sm font-medium ${
+                activeTab === 'terminal'
+                  ? 'bg-[#2d2d2d] text-white border-b-2 border-blue-600'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
             >
-              {copyText}
-            </a>
+              Terminal
+            </button>
           </div>
-        </div>
 
-        {/* Parameters Panel */}
-        <div className="flex-1 min-w-[300px]">
-          <Parameters
-            setProgramParameters={setProgramParameters}
-            setProgramCurriedParameters={setProgramCurriedParameters}
-          />
-        </div>
-      </div>
+          {activeTab === 'output' && (
+            <div className="h-64">
+              {' '}
+              {/* Adjust height as needed */}
+              <Output
+                puzzleHash={puzzleHash}
+                puzzleAddress={puzzleAddress}
+                conditions={conditions}
+                cost={cost}
+                errorMessage={errorMessage}
+              />
+            </div>
+          )}
 
-      <div>
-        <Output
-          puzzleHash={puzzleHash}
-          conditions={conditions}
-          cost={cost}
-          puzzleAddress={puzzleAddress}
-          errorMessage={errorMessage}
-        />
+          {activeTab === 'terminal' && <TerminalPanel />}
+        </div>
       </div>
     </div>
   );
 }
-

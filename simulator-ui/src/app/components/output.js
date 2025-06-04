@@ -1,84 +1,84 @@
+'use client';
 import React, { useState } from "react";
 
 const Output = ({ puzzleHash, conditions, cost, puzzleAddress, errorMessage }) => {
-    // State to track which field was copied
-    const [copiedField, setCopiedField] = useState(null);
+  const [copiedField, setCopiedField] = useState(null);
 
-    // Function to copy text to clipboard and show feedback
-    const handleCopy = (text, field) => {
-        if (text) {
-            navigator.clipboard.writeText(text).then(() => {
-                setCopiedField(field);
-                // Reset feedback after 2 seconds
-                setTimeout(() => setCopiedField(null), 2000);
-            });
-        }
-    };
+  const handleCopy = (text, field) => {
+    if (text) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+      });
+    }
+  };
 
-    return (
-        <div className="flex flex-col h-full bg-gray-100 rounded-lg border border-gray-300">
-            {/* Header with centered text */}
-            <div className="text-center p-4 bg-gray-200 rounded-t-lg">
-                <h1 className="text-xl font-bold">Output</h1>
-            </div>
+  return (
+    <div className="flex flex-col h-full bg-[#1e1e1e] rounded border border-[#333] text-sm text-white font-mono p-4 space-y-3 overflow-auto">
+      {/* Puzzle Hash */}
+      <div className="flex items-center gap-2">
+        <span className="font-semibold text-gray-300">Puzzle Hash:</span>
+        <span className="text-green-400 break-all">{puzzleHash || ""}</span>
+        {puzzleHash && (
+          <button
+            onClick={() => handleCopy(puzzleHash, "puzzleHash")}
+            className="text-blue-400 hover:underline text-xs"
+          >
+            {copiedField === "puzzleHash" ? "Copied!" : "Copy"}
+          </button>
+        )}
+      </div>
 
-            {/* Output Section */}
-            <div className="flex-grow bg-black text-white rounded-b-lg overflow-auto p-4">
-                <div className="whitespace-pre-wrap text-sm">
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold">Puzzle Hash: </span>
-                        <span className="text-green-400">{puzzleHash || ""}</span>
-                        {puzzleHash && (
-                            <button
-                                onClick={() => handleCopy(puzzleHash, "puzzleHash")}
-                                className="pl-2 text-blue-400 hover:underline text-xs"
-                            >
-                                {copiedField === "puzzleHash" ? "Copied!" : "Copy"}
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold">Puzzle address: </span>
-                        <span className="text-green-400">{puzzleAddress || ""}</span>
-                        {puzzleAddress && (
-                            <button
-                                onClick={() => handleCopy(puzzleAddress, "puzzleAddress")}
-                                className="pl-2 text-blue-400 hover:underline text-xs"
-                            >
-                                {copiedField === "puzzleAddress" ? "Copied!" : "Copy"}
-                            </button>
-                        )}
-                    </div>
-                    <br />
-                    <h2 className="underline font-bold">Run output</h2>
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold">Conditions: </span>
-                        <span className="text-green-400">
-                            {conditions ? conditions.unparse() : "No output yet."}
-                        </span>
-                        {conditions && (
-                            <button
-                                onClick={() => handleCopy(conditions.unparse(), "conditions")}
-                                className="pl-2 text-blue-400 hover:underline text-xs"
-                            >
-                                {copiedField === "conditions" ? "Copied!" : "Copy"}
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold">Cost: </span>
-                        <span className="text-green-400">{cost || ""}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold">Error: </span>
-                        <span className="text-green-400">
-                            {errorMessage != null ? errorMessage : ""}
-                        </span>
-                    </div>
-                </div>
-            </div>
+      {/* Puzzle Address */}
+      <div className="flex items-center gap-2">
+        <span className="font-semibold text-gray-300">Puzzle Address:</span>
+        <span className="text-green-400 break-all">{puzzleAddress || ""}</span>
+        {puzzleAddress && (
+          <button
+            onClick={() => handleCopy(puzzleAddress, "puzzleAddress")}
+            className="text-blue-400 hover:underline text-xs"
+          >
+            {copiedField === "puzzleAddress" ? "Copied!" : "Copy"}
+          </button>
+        )}
+      </div>
+
+      {/* Run Output */}
+      <div>
+        <div className="font-semibold text-gray-300 underline mb-1">Run Output</div>
+
+        {/* Conditions */}
+        <div className="flex items-start gap-2">
+          <span className="font-semibold text-gray-300">Conditions:</span>
+          <span className="text-green-400 break-all flex-1">
+            {conditions ? conditions.unparse() : "No output yet."}
+          </span>
+          {conditions && (
+            <button
+              onClick={() => handleCopy(conditions.unparse(), "conditions")}
+              className="text-blue-400 hover:underline text-xs"
+            >
+              {copiedField === "conditions" ? "Copied!" : "Copy"}
+            </button>
+          )}
         </div>
-    );
+
+        {/* Cost */}
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-300">Cost:</span>
+          <span className="text-green-400">{cost || ""}</span>
+        </div>
+
+        {/* Error */}
+        <div className="flex items-start gap-2">
+          <span className="font-semibold text-gray-300">Error:</span>
+          <span className="text-green-400 whitespace-pre-wrap break-all">
+            {errorMessage ?? ""}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default Output;
