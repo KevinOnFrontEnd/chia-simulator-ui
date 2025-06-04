@@ -1,185 +1,185 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { XCircleIcon } from "@heroicons/react/24/solid";
-import * as sdk from "chia-wallet-sdk-wasm";
+'use client'; // for app/page.js or wherever applicable
+import React, { useState, useEffect, useMemo } from 'react';
+import { XCircle } from 'lucide-react';
+import * as sdk from 'chia-wallet-sdk-wasm';
 
 function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
-    const { Clvm, sha256, Address, toHex } = sdk;
+  const { Clvm, sha256, Address, toHex } = sdk;
+  const clvm = useMemo(() => new Clvm(), []);
 
-    // Memoize Clvm instance to avoid mismatch
-    const clvm = useMemo(() => new Clvm(), []);
+  const [parameterType, setParameterType] = useState('Text');
+  const [parameterValue, setParameterValue] = useState('');
+  const [parameters, setParameters] = useState([]);
+  const [curriedParameters, setCurriedParameters] = useState([]);
+  const [activeTab, setActiveTab] = useState('parameters');
+  const [parsedParams, setParsedParams] = useState([]);
 
-    const [parameterType, setParameterType] = useState("Text");
-    const [parameterValue, setParameterValue] = useState("");
-    const [parameters, setParameters] = useState([]);
-    const [curriedParameters, setCurriedParameters] = useState([]);
-    const [activeTab, setActiveTab] = useState("parameters");
-    const [parsedParams, setParsedParams] = useState([]);
-
-    useEffect(() => {
-        console.log("Mounted");
-        return () => {
-            console.log("Unmounted");
-        };
-    }, []);
-
-    // Recompute parsed display strings client-side
-    useEffect(() => {
-        const activeList = activeTab === "parameters" ? parameters : curriedParameters;
-        const parsed = activeList.map((param) => {
-        let displayValue = "";
+  useEffect(() => {
+    const activeList =
+      activeTab === 'parameters' ? parameters : curriedParameters;
+    const parsed = activeList.map((param) => {
+      let displayValue = '';
+      try {
+        if (
+          param.type === 'Text' ||
+          param.type === 'Bool' ||
+          param.type === 'Int'
+        ) {
+          displayValue = param.originalValue ?? param.value.toString();
+        } else if (param.type === 'Nil') {
+          displayValue = 'Nil';
+        } else if (param.type === 'Address') {
+          return param;
+        } else {
+          displayValue = param.value.unparse().replace(/"/g, '');
+        }
+      } catch (e) {
         try {
-            // Prefer originalValue for simple types
-            if (param.type === "Text" || param.type === "Bool" || param.type === "Int") {
-            displayValue = param.originalValue ?? param.value.toString();
-            } else if (param.type === "Nil") {
-            displayValue = "Nil";
-            } else if (param.type === "Address") {
-            return param; // Already has formatted fields
-            } else {
-            // Fallback to unparse for complex types
-            displayValue = param.value.unparse().replace(/"/g, "");
-            }
-        } catch (e) {
-            try {
-            displayValue = param.value.toString();
-            } catch {
-            displayValue = "[unparse error]";
-            }
+          displayValue = param.value.toString();
+        } catch {
+          displayValue = '[unparse error]';
         }
+      }
 
-        return { ...param, displayValue };
-        });
-        setParsedParams(parsed);
-    }, [parameters, curriedParameters, activeTab]);
+      return { ...param, displayValue };
+    });
+    setParsedParams(parsed);
+  }, [parameters, curriedParameters, activeTab]);
 
-    const moveParameter = (index, direction, isCurried) => {
-        const list = isCurried ? [...curriedParameters] : [...parameters];
-        const swapIndex = direction === "up" ? index - 1 : index + 1;
-        if (swapIndex < 0 || swapIndex >= list.length) return;
-        [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
-        if (isCurried) {
-            setCurriedParameters(list);
-            setProgramCurriedParameters(list);
-        } else {
-            setParameters(list);
-            setProgramParameters(list);
+  const moveParameter = (index, direction, isCurried) => {
+    const list = isCurried ? [...curriedParameters] : [...parameters];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= list.length) return;
+    [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+    if (isCurried) {
+      setCurriedParameters(list);
+      setProgramCurriedParameters(list);
+    } else {
+      setParameters(list);
+      setProgramParameters(list);
+    }
+  };
+
+  const handleAddParameter = (isCurried) => {
+    let newParameter = {};
+    try {
+      switch (parameterType) {
+        case 'SHA256': {
+          const textAtom = clvm.string(parameterValue);
+          const hashBytes = sha256(textAtom.toAtom());
+          const hash = clvm.atom(hashBytes);
+          newParameter = {
+            type: 'SHA256',
+            value: hash,
+            originalValue: parameterValue,
+          };
+          break;
         }
-    };
-
-    const handleAddParameter = (isCurried) => {
-        let newParameter = {};
-        try {
-            switch (parameterType) {
-              case 'SHA256': {
-                const textAtom = clvm.string(parameterValue);
-                const hashBytes = sha256(textAtom.toAtom());
-                const hash = clvm.atom(hashBytes);
-                newParameter = {
-                  type: 'SHA256',
-                  value: hash,
-                  originalValue: parameterValue,
-                };
-                break;
-              }
-              case 'Text': {
-                const hashBytes1 = clvm.string(parameterValue).toAtom();
-
-                const hashAtom1 = clvm.atom(hashBytes1);
-
-                newParameter = {
-                  type: 'Text',
-                  value: hashAtom1,
-                  originalValue: parameterValue,
-                };
-                break;
-              }
-              case 'Nil':
-                newParameter = { type: 'Nil', value: 'value does not matter' };
-                break;
-              case 'Bool':
-                newParameter = {
-                  type: 'Bool',
-                  value: clvm.bool(parameterValue),
-                  originalValue: parameterValue,
-                };
-                break;
-              case 'Int': {
-                const val = parseInt(parameterValue);
-                if (isNaN(val)) return;
-                newParameter = { type: 'Int', value: clvm.int(val) };
-                break;
-              }
-              case 'Address': {
-                const hash = Address.decode(parameterValue).puzzleHash; // Uint8Array
-                const hashProgram = clvm.atom(hash); // ✅ use bytes directly, NOT hex
-                const s = toHex(hash); // only for display purposes
-
-                newParameter = {
-                  type: 'Address',
-                  value: hashProgram,
-                  originalValue: parameterValue,
-                  puzzleHashHex: s,
-                };
-                break;
-              }
-            }
-        } catch (err) {
-            alert("Invalid input or type error");
-            console.error(err);
-            return;
+        case 'Text': {
+          const hashBytes1 = clvm.string(parameterValue).toAtom();
+          const hashAtom1 = clvm.atom(hashBytes1);
+          newParameter = {
+            type: 'Text',
+            value: hashAtom1,
+            originalValue: parameterValue,
+          };
+          break;
         }
-
-        if (isCurried) {
-            const updated = [...curriedParameters, newParameter];
-            setCurriedParameters(updated);
-            setProgramCurriedParameters(updated);
-        } else {
-            const updated = [...parameters, newParameter];
-            setParameters(updated);
-            setProgramParameters(updated);
+        case 'Nil':
+          newParameter = { type: 'Nil', value: 'value does not matter' };
+          break;
+        case 'Bool':
+          newParameter = {
+            type: 'Bool',
+            value: clvm.bool(parameterValue),
+            originalValue: parameterValue,
+          };
+          break;
+        case 'Int': {
+          const val = parseInt(parameterValue);
+          if (isNaN(val)) return;
+          newParameter = {
+            type: 'Int',
+            value: clvm.int(val),
+            originalValue: parameterValue,
+          };
+          break;
         }
-
-        setParameterValue("");
-    };
-
-    const handleRemoveParameter = (index, isCurried) => {
-        if (isCurried) {
-            const updated = curriedParameters.filter((_, i) => i !== index);
-            setCurriedParameters(updated);
-            setProgramCurriedParameters(updated);
-        } else {
-            const updated = parameters.filter((_, i) => i !== index);
-            setParameters(updated);
-            setProgramParameters(updated);
+        case 'Address': {
+          const hash = Address.decode(parameterValue).puzzleHash;
+          const hashProgram = clvm.atom(hash);
+          const s = toHex(hash);
+          newParameter = {
+            type: 'Address',
+            value: hashProgram,
+            originalValue: parameterValue,
+            puzzleHashHex: s,
+          };
+          break;
         }
-    };
+      }
+    } catch (err) {
+      alert('Invalid input or type error');
+      console.error(err);
+      return;
+    }
 
-    return (
-      <div className="rounded-lg border border-gray-300">
-        <div className="text-center p-4 bg-gray-200 rounded-t-lg ">
-          <h1 className="text-xl font-bold">Parameters</h1>
-        </div>
-        <div className="border-b border-gray-300 flex mb-4">
-          {['parameters', 'curriedParameters'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 p-2 text-center ${
-                activeTab === tab
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {tab === 'parameters' ? 'Parameters' : 'Curried Parameters'}
-            </button>
-          ))}
-        </div>
+    const updated = isCurried
+      ? [...curriedParameters, newParameter]
+      : [...parameters, newParameter];
+    if (isCurried) {
+      setCurriedParameters(updated);
+      setProgramCurriedParameters(updated);
+    } else {
+      setParameters(updated);
+      setProgramParameters(updated);
+    }
 
-        <div className="flex items-center gap-4 mb-4 p-2">
+    setParameterValue('');
+  };
+
+  const handleRemoveParameter = (index, isCurried) => {
+    const updated = isCurried
+      ? curriedParameters.filter((_, i) => i !== index)
+      : parameters.filter((_, i) => i !== index);
+
+    if (isCurried) {
+      setCurriedParameters(updated);
+      setProgramCurriedParameters(updated);
+    } else {
+      setParameters(updated);
+      setProgramParameters(updated);
+    }
+  };
+
+  return (
+    <div className="bg-[#1e1e1e] text-white p-4 h-full overflow-auto border-r border-[#333]">
+      <h1 className="text-xl font-semibold mb-4">Parameters</h1>
+
+      {/* Tabs */}
+      <div className="flex mb-4 rounded overflow-hidden border border-[#333]">
+        {['parameters', 'curriedParameters'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`w-1/2 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab
+                ? 'bg-blue-600 text-white'
+                : 'bg-[#2d2d2d] text-gray-400 hover:bg-[#3a3a3a]'
+            }`}
+          >
+            {tab === 'parameters' ? 'Parameters' : 'Curried Parameters'}
+          </button>
+        ))}
+      </div>
+
+      {/* Input Fields + Add Link */}
+      <div className="mb-4">
+        <div className="flex flex-col gap-2">
           <select
             value={parameterType}
             onChange={(e) => setParameterType(e.target.value)}
-            className="p-2 text-base border border-gray-300 rounded-md"
+            className="p-2 bg-[#2d2d2d] text-white border border-[#444] rounded"
           >
             <option value="Text">Text</option>
             <option value="Int">Int</option>
@@ -188,6 +188,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
             <option value="Nil">Nil</option>
             <option value="Address">Address</option>
           </select>
+
           <input
             type="text"
             value={parameterValue}
@@ -199,103 +200,112 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
               }
             }}
             placeholder="Enter value and press Enter"
-            className="flex-1 p-2 text-base border border-gray-300 rounded-md"
+            className="px-3 py-2 bg-[#2d2d2d] text-white border border-[#444] rounded"
           />
+
           <button
             onClick={() =>
               handleAddParameter(activeTab === 'curriedParameters')
             }
-            className="px-6 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            className="cursor-pointer text-blue-500 text-sm underline hover:text-blue-400 mt-1 self-end"
           >
-            Add (Enter)
+            Add
           </button>
         </div>
+      </div>
 
-        <div className="flex-grow overflow-auto p-2">
-          <table className="table-auto w-full border-collapse border border-gray-300">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="border border-gray-300 px-4 py-2">Type</th>
-                <th className="border border-gray-300 px-4 py-2">Value</th>
-                <th className="border border-gray-300 px-4 py-2">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {parsedParams.length > 0 ? (
-                parsedParams.map((param, index) => (
-                  <tr key={index} className="text-center">
-                    <td className="border border-gray-300 px-4 py-2">
-                      {param.type}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-2 truncate">
-                      {param.type === 'Address' ? (
-                        <div className="flex flex-col text-left">
-                          <div>
-                            <strong>Address:</strong> {param.originalValue}
-                          </div>
-                          <div className="text-gray-400 text-sm">
-                            <strong>Puzzle Hash:</strong> {param.puzzleHashHex}
-                          </div>
+      <div className="overflow-auto max-h-[60vh] border border-[#333] rounded">
+        <table className="w-full table-auto text-sm">
+          <thead className="bg-[#2d2d2d] text-gray-300">
+            <tr>
+              <th className="px-4 py-2 text-left border-b border-[#333]">
+                Type
+              </th>
+              <th className="px-4 py-2 text-left border-b border-[#333]">
+                Value
+              </th>
+              <th className="px-4 py-2 text-left border-b border-[#333]">
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {parsedParams.length > 0 ? (
+              parsedParams.map((param, index) => (
+                <tr
+                  key={index}
+                  className="border-t border-[#333] hover:bg-[#2a2a2a]"
+                >
+                  <td className="px-4 py-2">{param.type}</td>
+                  <td className="px-4 py-2">
+                    {param.type === 'Address' ? (
+                      <div>
+                        <div className="text-white">
+                          <strong>Address:</strong> {param.originalValue}
                         </div>
-                      ) : (
-                        (param.displayValue ?? '')
-                      )}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-2">
-                      <button
-                        onClick={() =>
-                          handleRemoveParameter(
-                            index,
-                            activeTab === 'curriedParameters'
-                          )
-                        }
-                        className="text-red-500 hover:text-red-700 mr-2"
-                      >
-                        <XCircleIcon className="w-5 h-5 inline" />
-                      </button>
-                      <button
-                        onClick={() =>
-                          moveParameter(
-                            index,
-                            'up',
-                            activeTab === 'curriedParameters'
-                          )
-                        }
-                        className="text-blue-500 hover:text-blue-700 mr-1"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        onClick={() =>
-                          moveParameter(
-                            index,
-                            'down',
-                            activeTab === 'curriedParameters'
-                          )
-                        }
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        ↓
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan="3"
-                    className="border border-gray-300 px-4 py-2 text-center text-gray-500 italic"
-                  >
-                    No {activeTab === 'parameters' ? '' : 'curried '}parameters
-                    added yet.
+                        <div className="text-gray-400 text-xs">
+                          <strong>Puzzle Hash:</strong> {param.puzzleHashHex}
+                        </div>
+                      </div>
+                    ) : (
+                      param.displayValue
+                    )}
+                  </td>
+                  <td className="px-4 py-2 flex gap-2">
+                    <button
+                      onClick={() =>
+                        handleRemoveParameter(
+                          index,
+                          activeTab === 'curriedParameters'
+                        )
+                      }
+                      className="text-red-400 hover:text-red-600"
+                    >
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        moveParameter(
+                          index,
+                          'up',
+                          activeTab === 'curriedParameters'
+                        )
+                      }
+                      className="hover:text-blue-400"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() =>
+                        moveParameter(
+                          index,
+                          'down',
+                          activeTab === 'curriedParameters'
+                        )
+                      }
+                      className="hover:text-blue-400"
+                    >
+                      ↓
+                    </button>
                   </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan="3"
+                  className="px-4 py-4 text-center text-gray-500 italic"
+                >
+                  No {activeTab === 'parameters' ? '' : 'curried '}parameters
+                  added yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
-    );
+    </div>
+  );
 }
 
 export default Parameters;
