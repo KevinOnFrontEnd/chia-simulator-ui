@@ -31,11 +31,20 @@ It allows you to:
 
 ---
 
-## Build & Run
+## Build & Run your own image or run published image
+#### Build your own image
 
 ```bash
 docker build -t chia-simulator-ui .
-docker run --name sim -p 3000:3000 chia-simulator-ui
+docker run --name simulator-ui -p 3000:3000 chia-simulator-ui
+```
+
+Or
+
+#### Run published image from docker.io
+
+```bash
+docker run --name simulator-ui -p 3000:3000 docker.io/kevinonfrontend/simulator-ui:latest
 ```
 
 ## How to Access It
