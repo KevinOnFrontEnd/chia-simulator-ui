@@ -6,7 +6,7 @@ on:
       tag:
         description: 'Build and publish docker image'
         required: true
-        default: 'latest'
+        default: '0.0.1'
 
 jobs:
   build:
@@ -24,11 +24,15 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build Docker image
+      
+      - name: Build Docker image with version and latest tags
         run: |
-          docker build -t kevinonfrontend/simulator-ui:${{ inputs.tag }} .
+          docker buildx build . \
+            --tag kevinonfrontend/simulator-ui:${{ inputs.tag }} \
+            --tag kevinonfrontend/simulator-ui:latest \
+            --load
 
-      - name: Push Docker image
+      - name: Push Docker image tags
         run: |
           docker push kevinonfrontend/simulator-ui:${{ inputs.tag }}
+          docker push kevinonfrontend/simulator-ui:latest
