@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as sdk from 'chia-wallet-sdk-wasm';
 import dynamic from 'next/dynamic';
-import * as monaco from 'monaco-editor';
 import Parameters from './components/parameters';
 import TopMenuBar from './components/topmenu';
 import { compileProgram } from './ChiaCompiler';
@@ -67,8 +66,8 @@ export default function Home() {
     try {
       const res = await fetch('/api/address');
       const data = await res.json();
-      if (data.address) {
-        setCurrentAddress(data.address);
+      if (data.output) {
+        setCurrentAddress(data.output);
       }
     } catch (err) {
       console.error('Address fetch error:', err);
