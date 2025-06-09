@@ -153,7 +153,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
   };
 
   return (
-    <div className="bg-[#1e1e1e] text-white p-4 h-full overflow-auto border-r border-[#333]">
+    <div className="bg-[#1e1e1e] text-white p-4 min-h-[200px] overflow-auto border-r border-[#333]">
       <h1 className="text-xl font-semibold mb-4">Parameters</h1>
 
       {/* Tabs */}

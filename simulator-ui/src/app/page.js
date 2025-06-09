@@ -5,15 +5,13 @@ import dynamic from 'next/dynamic';
 import Parameters from './components/parameters';
 import TopMenuBar from './components/topmenu';
 import { compileProgram } from './ChiaCompiler';
-import TerminalPanel from './components/terminal'; // Adjust path if needed
+import TerminalPanel from './components/terminal';
 import Output from './components/output';
 
-// Dynamic import for Monaco Editor
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
 });
 
-// Register Chialisp language
 function registerChialisp(monacoInstance) {
   monacoInstance.languages.register({ id: 'chialisp' });
 
@@ -88,8 +86,7 @@ export default function Home() {
 
   const nextBlock = async () => {
     try {
-      const res = await fetch('/api/nextblock', { method: 'POST' });
-      const data = await res.json();
+      await fetch('/api/nextblock', { method: 'POST' });
       await fetchBlockHeight();
     } catch (err) {
       console.error('Next block error:', err);
@@ -99,9 +96,6 @@ export default function Home() {
   const handleCompileAndRun = () => {
     try {
       const source = editorRef.current?.getValue() ?? '';
-
-      console.log(source);
-
       if (!source) return;
 
       setProgramSource(source);
@@ -165,7 +159,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#252526] text-white">
+    <div className="min-h-screen bg-[#252526] text-white pb-12">
       <TopMenuBar
         onRun={handleCompileAndRun}
         onNextBlock={() => {
@@ -183,7 +177,8 @@ export default function Home() {
           URL.revokeObjectURL(url);
         }}
       />
-      {/* Status Bar Below Top Menu */}
+
+      {/* Status Bar */}
       <div className="flex justify-end items-center gap-6 px-4 py-1 bg-[#252526] text-sm text-gray-400 border-b border-[#333]">
         <div>
           <span className="text-white">Current Block:</span>{' '}
@@ -194,11 +189,13 @@ export default function Home() {
           {currentAddress || '...'}
         </div>
       </div>
-      <div className="flex flex-col h-[calc(100vh-48px)]">
-        {/* Main Panels */}
-        <div className="flex flex-row flex-grow overflow-hidden">
+
+      {/* Main Content */}
+      <div className="flex flex-col">
+        {/* Panels */}
+        <div className="flex flex-col md:flex-row">
           {/* Parameters */}
-          <div className="w-[33%] min-w-[300px] max-w-[400px] overflow-hidden">
+          <div className="w-full flex-shrink-0 md:w-[33%] md:max-w-[400px]">
             <Parameters
               setProgramParameters={setProgramParameters}
               setProgramCurriedParameters={setProgramCurriedParameters}
@@ -206,9 +203,9 @@ export default function Home() {
           </div>
 
           {/* Editor */}
-          <div className="w-2/3 bg-[#1e1e1e] p-4 text-white">
+          <div className="w-full md:w-2/3 bg-[#1e1e1e] p-4 text-white">
             <h2 className="text-lg font-semibold mb-4">Source Code</h2>
-            <div className="h-full border border-[#444] rounded overflow-hidden">
+            <div className="h-[300px] border border-[#444] rounded overflow-hidden">
               <MonacoEditor
                 defaultLanguage="chialisp"
                 theme="vs-dark"
@@ -229,6 +226,7 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Output & Terminal */}
         <div className="bg-[#1e1e1e] border-t border-[#333] p-4">
           {/* Tabs */}
           <div className="flex border-b border-[#333] mb-2">
@@ -256,8 +254,6 @@ export default function Home() {
 
           {activeTab === 'output' && (
             <div className="h-64">
-              {' '}
-              {/* Adjust height as needed */}
               <Output
                 puzzleHash={puzzleHash}
                 puzzleAddress={puzzleAddress}
