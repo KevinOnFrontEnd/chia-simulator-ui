@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 ### Added
 - Added a history drop down to the terminal component.
+- updated docker file to install 'chia-dev-tools' to get use of cdv
 
 ### Changed
 - Changed wrapping of editor and parameters components so that they wrap when there is not enough space when on smaller screens.
