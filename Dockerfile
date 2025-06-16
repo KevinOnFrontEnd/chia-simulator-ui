@@ -1,6 +1,10 @@
 #base image
 FROM ghcr.io/chia-network/chia:latest
 
+# install dev tools
+WORKDIR /chia-blockchain
+RUN pip install chia-dev-tools
+
 # Install Node.js
 RUN apt-get update && apt-get install -y curl gnupg && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
