@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+
 ## [Unreleased]
+### Added
+### Change
+### Fixed
+
+
+## [0.0.2] - 2025-06-17
 ### Added
 - Added a history drop down to the terminal component.
 - updated docker file to install 'chia-dev-tools' to get use of cdv
