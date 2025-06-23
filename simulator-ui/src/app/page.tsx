@@ -85,58 +85,58 @@ export default function Home() {
   };
 
   const handleCompileAndRun = () => {
-    // try {
-    //   const source = editorRef.current?.getValue() ?? '';
-    //   if (!source) return;
+    try {
+      const source = editorRef.current?.getValue() ?? "";
+      if (!source) return;
 
-    //   setProgramSource(source);
+      //   setProgramSource(source);
 
-    //   const clvm = new sdk.Clvm();
+      //   const clvm = new sdk.Clvm();
 
-    //   const curried = programCurriedParameters.map((param) => {
-    //     if (param.type === 'Text') return param.value;
-    //     if (param.type === 'Int') return clvm.int(BigInt(param.value?.toInt?.() ?? 0));
-    //     if (param.type === 'Nil') return clvm.nil();
-    //     return param.value;
-    //   });
+      //   const curried = programCurriedParameters.map((param) => {
+      //     if (param.type === 'Text') return param.value;
+      //     if (param.type === 'Int') return clvm.int(BigInt(param.value?.toInt?.() ?? 0));
+      //     if (param.type === 'Nil') return clvm.nil();
+      //     return param.value;
+      //   });
 
-    //   const params = programParameters.map((param) => {
-    //     if (param.type === 'Text') return param.value;
-    //     if (param.type === 'Int') return clvm.int(BigInt(param.value?.toInt?.() ?? 0));
-    //     if (param.type === 'Nil') return clvm.nil();
-    //     return param.value;
-    //   });
+      //   const params = programParameters.map((param) => {
+      //     if (param.type === 'Text') return param.value;
+      //     if (param.type === 'Int') return clvm.int(BigInt(param.value?.toInt?.() ?? 0));
+      //     if (param.type === 'Nil') return clvm.nil();
+      //     return param.value;
+      //   });
 
-    //   // const result = compileProgram(source, curried, params, 'txch');
+      //   // const result = compileProgram(source, curried, params, 'txch');
 
-    //   const historyItem: HistoryItem = {
-    //     id: Date.now(),
-    //     date: new Date()
-    //       .toLocaleString('en-GB', {
-    //         year: 'numeric',
-    //         month: '2-digit',
-    //         day: '2-digit',
-    //         hour: '2-digit',
-    //         minute: '2-digit',
-    //         second: '2-digit',
-    //         hour12: false,
-    //       })
-    //       .replace(',', ''),
-    //     source,
-    //     output: result.errorMessage ? 'Failed' : result.conditions.unparse(),
-    //     errorMessage: result.errorMessage || '',
-    //     cost: result.cost,
-    //   };
+      //   const historyItem: HistoryItem = {
+      //     id: Date.now(),
+      //     date: new Date()
+      //       .toLocaleString('en-GB', {
+      //         year: 'numeric',
+      //         month: '2-digit',
+      //         day: '2-digit',
+      //         hour: '2-digit',
+      //         minute: '2-digit',
+      //         second: '2-digit',
+      //         hour12: false,
+      //       })
+      //       .replace(',', ''),
+      //     source,
+      //     output: result.errorMessage ? 'Failed' : result.conditions.unparse(),
+      //     errorMessage: result.errorMessage || '',
+      //     cost: result.cost,
+      //   };
 
-    //   setHistory((prev) => [...prev, historyItem]);
-    //   setCost(result.cost);
-    //   setConditions(result.conditions);
-    //   setPuzzleHash(result.puzzleHash);
-    //   setErrorMessage(result.errorMessage);
-    //   setPuzzleAddress(result.puzzleAddress);
-    //} catch (e) {
-    //  console.error('Compile error:', e);
-    //}
+      //   setHistory((prev) => [...prev, historyItem]);
+      //   setCost(result.cost);
+      //   setConditions(result.conditions);
+      //   setPuzzleHash(result.puzzleHash);
+      //   setErrorMessage(result.errorMessage);
+      //   setPuzzleAddress(result.puzzleAddress);
+    } catch (e) {
+      console.error("Compile error:", e);
+    }
   };
 
   const handleEditorDidMount = (
