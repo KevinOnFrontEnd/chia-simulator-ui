@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 ### Added
 ### Change
+- Changed whole project to use typescript
+- Added integration tests to test api commands for compiling
+- added endpoint for compiling using cdv
+- updated header to be greyed out and have a spinner when calling async cdv endpoint
+- return CLVM bytecode with api response
 ### Fixed
 
 

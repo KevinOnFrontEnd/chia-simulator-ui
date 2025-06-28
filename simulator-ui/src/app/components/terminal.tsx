@@ -1,17 +1,18 @@
 'use client';
+
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function TerminalPanel() {
-  const [command, setCommand] = useState('');
-  const [terminalOutput, setTerminalOutput] = useState('');
-  const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const inputRef = useRef(null);
-  const dropdownRef = useRef(null);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [command, setCommand] = useState<string>('');
+  const [terminalOutput, setTerminalOutput] = useState<string>('');
+  const [history, setHistory] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState<boolean>(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const dropdownRef = useRef<HTMLUListElement | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
-  const handleRemoveHistoryItem = (indexToRemove) => {
+  const handleRemoveHistoryItem = (indexToRemove: number) => {
     setHistory((prev) => prev.filter((_, index) => index !== indexToRemove));
     if (selectedIndex >= indexToRemove) {
       setSelectedIndex((prev) => Math.max(-1, prev - 1));
@@ -21,30 +22,36 @@ export default function TerminalPanel() {
   const runCommand = async () => {
     if (!command.trim()) return;
 
-    const res = await fetch('/api/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
-    });
+    try {
+      const res = await fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command }),
+      });
 
-    const data = await res.json();
-    setTerminalOutput(data.output || data.error || 'No output');
+      const data = await res.json();
+      setTerminalOutput(data.output || data.error || 'No output');
 
-    // Update history if command is new
-    setHistory((prev) => (prev.includes(command) ? prev : [command, ...prev]));
-    setCommand('');
-    setShowHistory(false);
+      // Update history if command is new
+      setHistory((prev) => (prev.includes(command) ? prev : [command, ...prev]));
+      setCommand('');
+      setShowHistory(false);
+    } catch (error) {
+      console.error('Command error:', error);
+      setTerminalOutput('Error running command.');
+    }
   };
 
-  const handleHistorySelect = (cmd) => {
+  const handleHistorySelect = (cmd: string) => {
     setCommand(cmd);
     inputRef.current?.focus();
     setShowHistory(false);
   };
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('#command-input-wrapper')) {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('#command-input-wrapper')) {
         setShowHistory(false);
       }
     };
@@ -68,9 +75,7 @@ export default function TerminalPanel() {
           {terminalOutput ? (
             terminalOutput
           ) : (
-            <span className="text-gray-500 italic">
-              No terminal output yet.
-            </span>
+            <span className="text-gray-500 italic">No terminal output yet.</span>
           )}
         </pre>
       </div>
