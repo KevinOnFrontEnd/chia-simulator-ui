@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 ### Added
 ### Change
+- Changed whole project to use typescript
+- Added integration tests to test api commands for compiling
 ### Fixed
 
 

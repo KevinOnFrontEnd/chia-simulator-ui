@@ -8,13 +8,14 @@ import TopMenuBar from './components/topmenu';
 import TerminalPanel from './components/terminal';
 import Output from './components/output';
 import type * as monaco from 'monaco-editor';
+import { CDVCommandRequest } from "./api/cdv/route";
 
-const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
 });
 
 type Parameter = {
-  type: 'Text' | 'Int' | 'Nil' | string;
+  type: "Text" | "Int" | "Nil" | string;
   value: any;
 };
 
@@ -30,21 +31,23 @@ type HistoryItem = {
 export default function Home() {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
-  const [programSource, setProgramSource] = useState('');
+  const [programSource, setProgramSource] = useState("");
   const [programParameters, setProgramParameters] = useState<Parameter[]>([]);
-  const [programCurriedParameters, setProgramCurriedParameters] = useState<Parameter[]>([]);
+  const [programCurriedParameters, setProgramCurriedParameters] = useState<
+    Parameter[]
+  >([]);
   const [currentBlockHeight, setCurrentBlockHeight] = useState<number>(0);
-  const [currentAddress, setCurrentAddress] = useState<string>('');
-
+  const [currentAddress, setCurrentAddress] = useState<string>("");
+  const [isCompiling, setIsCompiling] = useState(false); // Add this line
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [conditions, setConditions] = useState<any>(null);
-  const [compiledProgram, setCompiledProgram] = useState<any>(null);
-  const [compiledProgramText, setCompiledProgramText] = useState<string>('');
+  const [CLVMBytecode, setCLVMBytecode] = useState<any>("");
+  const [compiledProgramText, setCompiledProgramText] = useState<string>("");
   const [cost, setCost] = useState<number>(0);
-  const [errorMessage, setErrorMessage] = useState<string>('');
-  const [puzzleHash, setPuzzleHash] = useState<string>('');
-  const [puzzleAddress, setPuzzleAddress] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'output' | 'terminal'>('output');
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [puzzleHash, setPuzzleHash] = useState<string>("");
+  const [puzzleAddress, setPuzzleAddress] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"output" | "terminal">("output");
 
   useEffect(() => {
     fetchBlockHeight();
@@ -53,52 +56,95 @@ export default function Home() {
 
   const fetchCurrentAddress = async () => {
     try {
-      const res = await fetch('/api/address');
+      const res = await fetch("/api/address");
       const data = await res.json();
       if (data.output) {
         setCurrentAddress(data.output);
       }
     } catch (err) {
-      console.error('Address fetch error:', err);
+      console.error("Address fetch error:", err);
     }
   };
 
   const fetchBlockHeight = async () => {
     try {
-      const res = await fetch('/api/blockheight');
+      const res = await fetch("/api/blockheight");
       const data = await res.json();
       if (data.output) {
         setCurrentBlockHeight(parseInt(data.output));
       }
     } catch (err) {
-      console.error('Block height error:', err);
+      console.error("Block height error:", err);
     }
   };
 
   const nextBlock = async () => {
     try {
-      await fetch('/api/nextblock', { method: 'POST' });
+      await fetch("/api/nextblock", { method: "POST" });
       await fetchBlockHeight();
     } catch (err) {
-      console.error('Next block error:', err);
+      console.error("Next block error:", err);
     }
   };
 
-  const handleCompileAndRun = () => {
+  const handleCompileAndRun = async () => {
     try {
       const source = editorRef.current?.getValue() ?? "";
-      if (!source) return;
+      if (!source) {
+        return;
+      }
+      setProgramSource(source);
 
-      //   setProgramSource(source);
+      if (!source.trim()) {
+        alert("Please enter a Chialisp program");
+        return;
+      }
 
-      //   const clvm = new sdk.Clvm();
+      setIsCompiling(true); // Set loading to true at start
 
-      //   const curried = programCurriedParameters.map((param) => {
-      //     if (param.type === 'Text') return param.value;
-      //     if (param.type === 'Int') return clvm.int(BigInt(param.value?.toInt?.() ?? 0));
-      //     if (param.type === 'Nil') return clvm.nil();
-      //     return param.value;
-      //   });
+      const requestBody: CDVCommandRequest = {
+        program: source.trim(),
+      };
+
+      const curried = programCurriedParameters.map((param) => {
+        switch (param.type) {
+          case "Text":
+            return param.value as string;
+          case "Int":
+            return Number(param.value?.toInt?.()) ?? 0; // Returns number
+          case "Boolean":
+            return param.value === "true" || param.value === true;
+          case "Hex":
+            return param.value; // Assuming it's already in "0x..." format
+          default:
+            return param.value;
+        }
+      });
+
+      if (curried.length > 0) {
+        requestBody.curry = curried;
+      }
+
+      const params = programParameters.map((param) => {
+        if (param.type === "Text") return param.value;
+        if (param.type === "Int") return Number(param.value?.toInt?.()) ?? 0; // Convert to number for API
+        if (param.type === "Nil") return null; // or undefined, or empty array []
+        return param.value;
+      });
+
+      if (params.length > 0) {
+        requestBody.solution = params;
+      }
+      // Make the API call to /api/cdv (not /api/command)
+      const response = await fetch("/api/cdv", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const result = await response.json();
 
       //   const params = programParameters.map((param) => {
       //     if (param.type === 'Text') return param.value;
@@ -129,13 +175,16 @@ export default function Home() {
       //   };
 
       //   setHistory((prev) => [...prev, historyItem]);
-      //   setCost(result.cost);
-      //   setConditions(result.conditions);
-      //   setPuzzleHash(result.puzzleHash);
-      //   setErrorMessage(result.errorMessage);
-      //   setPuzzleAddress(result.puzzleAddress);
+      setCost(result.cost);
+      setConditions(result.output);
+      setPuzzleHash(result.puzzleHash);
+      setErrorMessage(result.errormessage);
+      setPuzzleAddress(result.puzzleAddress);
+      setCLVMBytecode(result.curriedBytecode);
     } catch (e) {
       console.error("Compile error:", e);
+    } finally {
+      setIsCompiling(false); // Always set loading to false when done
     }
   };
 
@@ -160,13 +209,14 @@ export default function Home() {
           nextBlock();
           fetchBlockHeight();
         }}
+        isCompiling={isCompiling} // Pass the loading state
         onSave={() => {
-          const source = editorRef.current?.getValue() ?? '';
-          const blob = new Blob([source], { type: 'text/plain' });
+          const source = editorRef.current?.getValue() ?? "";
+          const blob = new Blob([source], { type: "text/plain" });
           const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
+          const a = document.createElement("a");
           a.href = url;
-          a.download = 'program.clsp';
+          a.download = "program.clsp";
           a.click();
           URL.revokeObjectURL(url);
         }}
@@ -175,12 +225,12 @@ export default function Home() {
       {/* Status Bar */}
       <div className="flex justify-end items-center gap-6 px-4 py-1 bg-[#252526] text-sm text-gray-400 border-b border-[#333]">
         <div>
-          <span className="text-white">Current Block:</span>{' '}
-          {currentBlockHeight ?? '...'}
+          <span className="text-white">Current Block:</span>{" "}
+          {currentBlockHeight ?? "..."}
         </div>
         <div>
-          <span className="text-white">Current Address:</span>{' '}
-          {currentAddress || '...'}
+          <span className="text-white">Current Address:</span>{" "}
+          {currentAddress || "..."}
         </div>
       </div>
 
@@ -208,11 +258,11 @@ export default function Home() {
                 options={{
                   fontSize: 13,
                   minimap: { enabled: false },
-                  lineNumbers: 'on',
+                  lineNumbers: "on",
                   scrollBeyondLastLine: false,
-                  wordWrap: 'on',
+                  wordWrap: "on",
                   automaticLayout: true,
-                  fontFamily: 'monospace',
+                  fontFamily: "monospace",
                   padding: { top: 10, bottom: 10 },
                 }}
               />
@@ -225,28 +275,28 @@ export default function Home() {
           {/* Tabs */}
           <div className="flex border-b border-[#333] mb-2">
             <button
-              onClick={() => setActiveTab('output')}
+              onClick={() => setActiveTab("output")}
               className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'output'
-                  ? 'bg-[#2d2d2d] text-white border-b-2 border-blue-600'
-                  : 'text-gray-400 hover:text-gray-200'
+                activeTab === "output"
+                  ? "bg-[#2d2d2d] text-white border-b-2 border-blue-600"
+                  : "text-gray-400 hover:text-gray-200"
               }`}
             >
               Output
             </button>
             <button
-              onClick={() => setActiveTab('terminal')}
+              onClick={() => setActiveTab("terminal")}
               className={`px-4 py-2 text-sm font-medium ${
-                activeTab === 'terminal'
-                  ? 'bg-[#2d2d2d] text-white border-b-2 border-blue-600'
-                  : 'text-gray-400 hover:text-gray-200'
+                activeTab === "terminal"
+                  ? "bg-[#2d2d2d] text-white border-b-2 border-blue-600"
+                  : "text-gray-400 hover:text-gray-200"
               }`}
             >
               Terminal
             </button>
           </div>
 
-          {activeTab === 'output' && (
+          {activeTab === "output" && (
             <div className="h-64">
               <Output
                 puzzleHash={puzzleHash}
@@ -254,11 +304,12 @@ export default function Home() {
                 conditions={conditions}
                 cost={cost}
                 errorMessage={errorMessage}
+                clvmByteCode={CLVMBytecode}
               />
             </div>
           )}
 
-          {activeTab === 'terminal' && <TerminalPanel />}
+          {activeTab === "terminal" && <TerminalPanel />}
         </div>
       </div>
     </div>
