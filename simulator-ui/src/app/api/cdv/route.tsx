@@ -13,6 +13,17 @@ export interface CDVCommandRequest {
   solution?: (string | number | boolean)[];
 }
 
+export interface CDVCommandResponse {
+  output: string;
+  cost: number | null;
+  bytecode: "original" | "curried";
+  originalBytecode: string;
+  curriedBytecode: string;
+  puzzleHash: string;
+  puzzleAddress: string;
+  errormessage: string;
+}
+
 export async function POST(req: Request): Promise<NextResponse> {
   try {
     const body = (await req.json()) as CDVCommandRequest;
@@ -148,7 +159,7 @@ export async function POST(req: Request): Promise<NextResponse> {
           : "Program compiled successfully";
       }
 
-      return NextResponse.json({
+      return NextResponse.json<CDVCommandResponse>({
         output,
         cost,
         bytecode: hasCurriedFile ? "curried" : "original",
