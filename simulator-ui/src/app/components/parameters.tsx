@@ -1,30 +1,43 @@
-'use client'; // for app/page.js or wherever applicable
+'use client';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { XCircle } from 'lucide-react';
 import * as sdk from 'chia-wallet-sdk-wasm';
 
-function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
-  const { Clvm, sha256, Address, toHex } = sdk;
+const { Clvm, sha256, Address, toHex } = sdk;
+
+interface Parameter {
+  type: 'Text' | 'Int' | 'SHA256' | 'Bool' | 'Nil' | 'Address';
+  value: any; // CLVM type from sdk
+  originalValue?: string;
+  puzzleHashHex?: string;
+  displayValue?: string;
+}
+
+interface ParametersProps {
+  setProgramParameters: (params: Parameter[]) => void;
+  setProgramCurriedParameters: (params: Parameter[]) => void;
+}
+
+export default function Parameters({
+  setProgramParameters,
+  setProgramCurriedParameters,
+}: ParametersProps) {
   const clvm = useMemo(() => new Clvm(), []);
 
-  const [parameterType, setParameterType] = useState('Text');
-  const [parameterValue, setParameterValue] = useState('');
-  const [parameters, setParameters] = useState([]);
-  const [curriedParameters, setCurriedParameters] = useState([]);
-  const [activeTab, setActiveTab] = useState('parameters');
-  const [parsedParams, setParsedParams] = useState([]);
+  const [parameterType, setParameterType] = useState<Parameter['type']>('Text');
+  const [parameterValue, setParameterValue] = useState<string>('');
+  const [parameters, setParameters] = useState<Parameter[]>([]);
+  const [curriedParameters, setCurriedParameters] = useState<Parameter[]>([]);
+  const [activeTab, setActiveTab] = useState<'parameters' | 'curriedParameters'>('parameters');
+  const [parsedParams, setParsedParams] = useState<Parameter[]>([]);
 
   useEffect(() => {
-    const activeList =
-      activeTab === 'parameters' ? parameters : curriedParameters;
+    const activeList = activeTab === 'parameters' ? parameters : curriedParameters;
     const parsed = activeList.map((param) => {
       let displayValue = '';
       try {
-        if (
-          param.type === 'Text' ||
-          param.type === 'Bool' ||
-          param.type === 'Int'
-        ) {
+        if (param.type === 'Text' || param.type === 'Bool' || param.type === 'Int') {
           displayValue = param.originalValue ?? param.value.toString();
         } else if (param.type === 'Nil') {
           displayValue = 'Nil';
@@ -40,13 +53,12 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
           displayValue = '[unparse error]';
         }
       }
-
       return { ...param, displayValue };
     });
     setParsedParams(parsed);
   }, [parameters, curriedParameters, activeTab]);
 
-  const moveParameter = (index, direction, isCurried) => {
+  const moveParameter = (index: number, direction: 'up' | 'down', isCurried: boolean) => {
     const list = isCurried ? [...curriedParameters] : [...parameters];
     const swapIndex = direction === 'up' ? index - 1 : index + 1;
     if (swapIndex < 0 || swapIndex >= list.length) return;
@@ -60,13 +72,13 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
     }
   };
 
-  const handleAddParameter = (isCurried) => {
-    let newParameter = {};
+  const handleAddParameter = (isCurried: boolean) => {
+    let newParameter: Partial<Parameter> = {};
     try {
       switch (parameterType) {
         case 'SHA256': {
           const textAtom = clvm.string(parameterValue);
-          const hashBytes = sha256(textAtom.toAtom());
+          const hashBytes = sha256(textAtom.toAtom()!);
           const hash = clvm.atom(hashBytes);
           newParameter = {
             type: 'SHA256',
@@ -77,7 +89,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
         }
         case 'Text': {
           const hashBytes1 = clvm.string(parameterValue).toAtom();
-          const hashAtom1 = clvm.atom(hashBytes1);
+          const hashAtom1 = clvm.atom(hashBytes1!);
           newParameter = {
             type: 'Text',
             value: hashAtom1,
@@ -89,9 +101,10 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
           newParameter = { type: 'Nil', value: 'value does not matter' };
           break;
         case 'Bool':
+            const boolVal = parameterValue.trim().toLowerCase() === 'true';
           newParameter = {
             type: 'Bool',
-            value: clvm.bool(parameterValue),
+            value: clvm.bool(boolVal!),
             originalValue: parameterValue,
           };
           break;
@@ -100,7 +113,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
           if (isNaN(val)) return;
           newParameter = {
             type: 'Int',
-            value: clvm.int(val),
+            value: clvm.int(BigInt(val)!),
             originalValue: parameterValue,
           };
           break;
@@ -124,9 +137,8 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
       return;
     }
 
-    const updated = isCurried
-      ? [...curriedParameters, newParameter]
-      : [...parameters, newParameter];
+    const typedParam = newParameter as Parameter;
+    const updated = isCurried ? [...curriedParameters, typedParam] : [...parameters, typedParam];
     if (isCurried) {
       setCurriedParameters(updated);
       setProgramCurriedParameters(updated);
@@ -138,7 +150,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
     setParameterValue('');
   };
 
-  const handleRemoveParameter = (index, isCurried) => {
+  const handleRemoveParameter = (index: number, isCurried: boolean) => {
     const updated = isCurried
       ? curriedParameters.filter((_, i) => i !== index)
       : parameters.filter((_, i) => i !== index);
@@ -156,12 +168,11 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
     <div className="bg-[#1e1e1e] text-white p-4 min-h-[200px] overflow-auto border-r border-[#333]">
       <h1 className="text-xl font-semibold mb-4">Parameters</h1>
 
-      {/* Tabs */}
       <div className="flex mb-4 rounded overflow-hidden border border-[#333]">
         {['parameters', 'curriedParameters'].map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => setActiveTab(tab as 'parameters' | 'curriedParameters')}
             className={`w-1/2 py-2 text-sm font-medium transition-colors ${
               activeTab === tab
                 ? 'bg-blue-600 text-white'
@@ -173,12 +184,11 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
         ))}
       </div>
 
-      {/* Input Fields + Add Link */}
       <div className="mb-4">
         <div className="flex flex-col gap-2">
           <select
             value={parameterType}
-            onChange={(e) => setParameterType(e.target.value)}
+            onChange={(e) => setParameterType(e.target.value as Parameter['type'])}
             className="p-2 bg-[#2d2d2d] text-white border border-[#444] rounded"
           >
             <option value="Text">Text</option>
@@ -204,9 +214,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
           />
 
           <button
-            onClick={() =>
-              handleAddParameter(activeTab === 'curriedParameters')
-            }
+            onClick={() => handleAddParameter(activeTab === 'curriedParameters')}
             className="cursor-pointer text-blue-500 text-sm underline hover:text-blue-400 mt-1 self-end"
           >
             Add
@@ -218,15 +226,9 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
         <table className="w-full table-auto text-sm">
           <thead className="bg-[#2d2d2d] text-gray-300">
             <tr>
-              <th className="px-4 py-2 text-left border-b border-[#333]">
-                Type
-              </th>
-              <th className="px-4 py-2 text-left border-b border-[#333]">
-                Value
-              </th>
-              <th className="px-4 py-2 text-left border-b border-[#333]">
-                Action
-              </th>
+              <th className="px-4 py-2 text-left border-b border-[#333]">Type</th>
+              <th className="px-4 py-2 text-left border-b border-[#333]">Value</th>
+              <th className="px-4 py-2 text-left border-b border-[#333]">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -254,10 +256,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
                   <td className="px-4 py-2 flex gap-2">
                     <button
                       onClick={() =>
-                        handleRemoveParameter(
-                          index,
-                          activeTab === 'curriedParameters'
-                        )
+                        handleRemoveParameter(index, activeTab === 'curriedParameters')
                       }
                       className="text-red-400 hover:text-red-600"
                     >
@@ -265,11 +264,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
                     </button>
                     <button
                       onClick={() =>
-                        moveParameter(
-                          index,
-                          'up',
-                          activeTab === 'curriedParameters'
-                        )
+                        moveParameter(index, 'up', activeTab === 'curriedParameters')
                       }
                       className="hover:text-blue-400"
                     >
@@ -277,11 +272,7 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
                     </button>
                     <button
                       onClick={() =>
-                        moveParameter(
-                          index,
-                          'down',
-                          activeTab === 'curriedParameters'
-                        )
+                        moveParameter(index, 'down', activeTab === 'curriedParameters')
                       }
                       className="hover:text-blue-400"
                     >
@@ -293,11 +284,10 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
             ) : (
               <tr>
                 <td
-                  colSpan="3"
+                  colSpan={3}
                   className="px-4 py-4 text-center text-gray-500 italic"
                 >
-                  No {activeTab === 'parameters' ? '' : 'curried '}parameters
-                  added yet.
+                  No {activeTab === 'parameters' ? '' : 'curried '}parameters added yet.
                 </td>
               </tr>
             )}
@@ -307,5 +297,3 @@ function Parameters({ setProgramParameters, setProgramCurriedParameters }) {
     </div>
   );
 }
-
-export default Parameters;

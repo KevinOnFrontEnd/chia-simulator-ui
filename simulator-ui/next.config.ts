@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack(config) {
+  experimental: {
+    wasm: true, // ✅ This enables WebAssembly support
+  },
+  webpack(config:any) {
     config.experiments = {
       asyncWebAssembly: true,
       ...config.experiments,

@@ -1,10 +1,26 @@
 'use client';
 import React, { useState } from "react";
 
-const Output = ({ puzzleHash, conditions, cost, puzzleAddress, errorMessage }) => {
-  const [copiedField, setCopiedField] = useState(null);
+interface OutputProps {
+  puzzleHash?: string | null;
+  puzzleAddress?: string | null;
+  cost?: number | string | null;
+  errorMessage?: string | null;
+  conditions?: string | null;
+  clvmByteCode?: string | null;
+}
 
-  const handleCopy = (text, field) => {
+const Output: React.FC<OutputProps> = ({
+  puzzleHash,
+  puzzleAddress,
+  cost,
+  errorMessage,
+  conditions,
+  clvmByteCode,
+}) => {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = (text: string, field: string) => {
     if (text) {
       navigator.clipboard.writeText(text).then(() => {
         setCopiedField(field);
@@ -43,19 +59,35 @@ const Output = ({ puzzleHash, conditions, cost, puzzleAddress, errorMessage }) =
         )}
       </div>
 
+      {/* Puzzle Address */}
+      <div className="flex items-center gap-2">
+        <span className="font-semibold text-gray-300">CLVM Bytecode</span>
+        <span className="text-green-400 break-all">{clvmByteCode || ""}</span>
+        {clvmByteCode && (
+          <button
+            onClick={() => handleCopy(clvmByteCode, "clvmByteCode")}
+            className="text-blue-400 hover:underline text-xs"
+          >
+            {copiedField === "clvmByteCode" ? "Copied!" : "Copy"}
+          </button>
+        )}
+      </div>
+
       {/* Run Output */}
       <div>
-        <div className="font-semibold text-gray-300 underline mb-1">Run Output</div>
+        <div className="font-semibold text-gray-300 underline mb-1">
+          Run Output
+        </div>
 
         {/* Conditions */}
         <div className="flex items-start gap-2">
           <span className="font-semibold text-gray-300">Conditions:</span>
           <span className="text-green-400 break-all flex-1">
-            {conditions ? conditions.unparse() : "No output yet."}
+            {conditions ? conditions : "No output yet."}
           </span>
           {conditions && (
             <button
-              onClick={() => handleCopy(conditions.unparse(), "conditions")}
+              onClick={() => handleCopy(conditions, "conditions")}
               className="text-blue-400 hover:underline text-xs"
             >
               {copiedField === "conditions" ? "Copied!" : "Copy"}
@@ -66,7 +98,7 @@ const Output = ({ puzzleHash, conditions, cost, puzzleAddress, errorMessage }) =
         {/* Cost */}
         <div className="flex items-center gap-2">
           <span className="font-semibold text-gray-300">Cost:</span>
-          <span className="text-green-400">{cost || ""}</span>
+          <span className="text-green-400">{cost ?? ""}</span>
         </div>
 
         {/* Error */}
