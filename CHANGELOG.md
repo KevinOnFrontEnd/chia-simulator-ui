@@ -8,10 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 ### Added
-### Change
-- Changed whole project to use typescript
+- Added a few tests to for the api/cdv endpoint
 - Added integration tests to test api commands for compiling
 - added endpoint for compiling using cdv
+### Change
+- Updated README.md with instructions on running locally without running the docker image.
+- Changed whole project to use typescript
 - updated header to be greyed out and have a spinner when calling async cdv endpoint
 - return CLVM bytecode with api response
 ### Fixed
