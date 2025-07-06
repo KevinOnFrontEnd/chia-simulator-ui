@@ -5,7 +5,6 @@ A lightweight web-based command terminal to code in **chialisp** and interact wi
 ---
 
 ## Requirements
-
 - [Node.js](https://nodejs.org/) (for development, if modifying frontend)
 - [Docker](https://www.docker.com/) (to run everything easily in a container)
 
@@ -47,8 +46,21 @@ Or
 docker run --name simulator-ui -p 3000:3000 docker.io/kevinonfrontend/simulator-ui:latest
 ```
 
+#### Running locally
+
+Running locally requires the frontend webapp to have access to cdv & the chia simulator. This is best done by using a venv:
+
+```bash
+python3 -m venv venv
+. ./venv/bin/activate
+pip install --extra-index-url https://pypi.chia.net/simple/ chia-dev-tools
+npm install
+npm run dev
+```
+
 ## How to Access It
 
 Once the container is running, open your browser and go to: http://localhost:3000
+
 
 ![alt text](screenshot.png)
