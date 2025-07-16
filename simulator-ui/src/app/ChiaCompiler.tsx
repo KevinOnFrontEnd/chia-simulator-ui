@@ -26,7 +26,7 @@
 //   let conditions: sdk.Program | null = null;
 //   let solution = null;
 //   let cost = 0;
-//   let compiledProgram: sdk.Program | null = null;
+//   let compiledProgram: sdk.Output | null = null;
 //   let errorMessage = '';
 //   let puzzleAddress = '';
 //   let programOutput = sdk.Output;
@@ -41,7 +41,7 @@
 //     puzzleAddress = new Address(puzzle.puzzleHash, prefix).encode();
 
 //     if (curriedParameters.length > 0) {
-//       const params = curriedParameters.map((p) => clvm.atom(p.toAtom()));
+//       const params = curriedParameters.map((p) => p.toAtom());
 //       const curriedProgram = compiledProgram.value.curry(params);
 //       compiledProgram = { value: curriedProgram };
 //       const curriedPuzzle = curriedProgram.puzzle();

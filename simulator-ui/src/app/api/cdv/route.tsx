@@ -1,9 +1,10 @@
 // app/api/command/route.ts
-import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { writeFile, unlink } from 'fs/promises';
-import { randomUUID } from 'crypto';
+
+import { NextResponse } from "next/server";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { writeFile, unlink } from "fs/promises";
+import { spawn } from "child_process";
 
 const execAsync = promisify(exec);
 
@@ -36,124 +37,120 @@ export async function POST(req: Request): Promise<NextResponse> {
       );
     }
 
-    // Use timestamp for simpler file names
     const timestamp = Date.now();
     const fileName = `prog_${timestamp}`;
     const clspPath = `/tmp/${fileName}.clsp`;
     const hexPath = `/tmp/${fileName}.clsp.hex`;
     const curriedPath = `/tmp/${fileName}_curried.hex`;
 
-    // Declare these outside try block so they're accessible in finally
     let executablePath = hexPath;
     let hasCurriedFile = false;
 
     try {
-      // Step 1: Write the Chialisp program to a temporary file
+      // 📝 Write the Chialisp program to a temporary file
       await writeFile(clspPath, program);
 
-      // Step 2: Compile the program - change to /tmp directory first
+      // 🏗 Compile the program
       const buildCmd = `cd /tmp && cdv clsp build ${fileName}.clsp`;
       console.log("Build command:", buildCmd);
-      await execAsync(buildCmd);
+      const buildOutput = await execAsync(buildCmd);
+      console.log(buildOutput);
 
-      // Verify hex file was created
+      // 🧐 Verify hex file was created
       try {
-        await execAsync(`ls ${hexPath}`);
+        const hexPathOutput = await execAsync(`ls ${hexPath}`);
+        console.log(hexPathOutput);
+
+        const hexContent = await execAsync(`cat ${hexPath}`);
+        console.log(hexContent);
       } catch {
         throw new Error("Compilation failed - hex file not created");
       }
 
-      // Step 3: Get original program bytecode and hash
+      // 📦 Get original program bytecode and hash
       const originalBytecode = (
         await execAsync(`cat ${hexPath}`)
       ).stdout.trim();
-      const originalPuzzleHashResult = await execAsync(
-        `cdv clsp treehash ${hexPath}`
-      );
-      const originalPuzzleHash = originalPuzzleHashResult.stdout.trim();
+      const originalPuzzleHash = (
+        await execAsync(`cdv clsp treehash ${hexPath}`)
+      ).stdout.trim();
 
-      // Initialize with original values
+      console.log(originalBytecode);
+      console.log(originalPuzzleHash);
+
       let curriedBytecode = "";
       let puzzleHash = originalPuzzleHash;
       let puzzleAddress = "";
 
-      // Step 4: Handle currying
+      console.log(curry);
+
+      // 🍳 Curry parameters if provided
       if (Array.isArray(curry) && curry.length > 0) {
-        // Format curry arguments properly
         const curryArgs = curry
           .map(formatChialispValue)
           .map((arg) => `-a ${arg}`)
           .join(" ");
 
-        // Curry the compiled program (not the source)
         const curryCmd = `cdv clsp curry ${hexPath} ${curryArgs} > ${curriedPath}`;
         console.log("Curry command:", curryCmd);
-        await execAsync(curryCmd);
+        var curryOutput = await execAsync(curryCmd);
 
-        // Get curried bytecode and hash
         curriedBytecode = (await execAsync(`cat ${curriedPath}`)).stdout.trim();
-        const curriedPuzzleHashResult = await execAsync(
-          `cdv clsp treehash ${curriedPath}`
-        );
-        puzzleHash = curriedPuzzleHashResult.stdout.trim(); // Use curried hash
+        puzzleHash = (
+          await execAsync(`cdv clsp treehash ${curriedPath}`)
+        ).stdout.trim();
 
-        executablePath = curriedPath; // Use curried version for execution
+        executablePath = curriedPath;
         hasCurriedFile = true;
       }
 
-      // Step 5: Generate address from the final puzzle hash
+      // 🎯 Generate address from the final puzzle hash
       try {
         const addressResult = await execAsync(`cdv encode ${puzzleHash}`);
         puzzleAddress = addressResult.stdout.trim();
+        console.log("puzzle address: " + puzzleAddress);
       } catch (addressError) {
         console.log("Address generation failed:", addressError);
-        // Don't fail the whole request, just leave empty
       }
 
-      let output: string = "";
+      let output = "";
       let cost: number | null = null;
 
-      // Step 6: Execute with solution or return execution result
+      // 🏃‍♂️ Execute puzzle if solution provided
       if (solution && Array.isArray(solution)) {
-        // Format solution for execution
-        const solutionStr = `'(${solution
-          .map(formatChialispValue)
-          .join(" ")})'`;
+        console.log(solution);
+        const solutionStr = solution.map(formatChialispValue).join(" ");
+        const escapedSolution = solutionStr.replace(/(["`\\$])/g, "\\$1"); // Escape ", `, \, $
+        console.log(`Running: brun -c ${executablePath} ${solutionStr}`);
 
-        // Try brun first (faster), fallback to cdv
+        const err = solution.map(formatChialispValueForShell);
+        console.log(err);
+
         try {
-          const result = await execAsync(
-            `brun -c ${executablePath} ${solutionStr}`
+          const result = await runBrun(
+            executablePath,
+            solution.map(formatChialispValueForShell)
           );
+          // const lines = result.stdout.trim().split("\n");
 
-          const lines = result.stdout.trim().split("\n");
-          if (lines.length >= 2) {
-            // First line: "cost = 1326"
-            const costMatch = lines[0].match(/cost\s*=\s*(\d+)/i);
-            if (costMatch) {
-              cost = parseInt(costMatch[1], 10);
-            }
+          // console.log(result);
 
-            // Second line: "88" (the actual result)
-            output = lines[1].trim();
-          } else {
-            // Fallback if format is different
-            output = result.stdout.trim();
-          }
-        } catch (brunError) {
-          console.log("brun failed, trying cdv:", brunError);
-          // Fallback to cdv
-          const cdvArgs = solution
-            .map(formatChialispValue)
-            .map((arg) => `-a ${arg}`)
-            .join(" ");
-          const result = await execAsync(
-            `cdv clsp run ${executablePath} ${cdvArgs}`
+          // if (lines.length >= 2) {
+          //   const costMatch = lines[0].match(/cost\s*=\s*(\d+)/i);
+          //   if (costMatch) {
+          //     cost = parseInt(costMatch[1], 10);
+          //   }
+          //   output = lines[1].trim();
+          // } else {
+          //   output = result.stdout.trim();
+          // }
+        } catch (brunError: any) {
+          throw new Error(
+            `Execution failed: ${brunError.stderr || brunError.message}`
           );
-          output = result.stdout.trim();
         }
       } else {
-        // Return execution info instead of bytecode since we're returning bytecode separately
+        // ✅ Return success message if no solution provided
         output = hasCurriedFile
           ? "Program compiled and curried successfully"
           : "Program compiled successfully";
@@ -164,21 +161,17 @@ export async function POST(req: Request): Promise<NextResponse> {
         cost,
         bytecode: hasCurriedFile ? "curried" : "original",
         originalBytecode,
-        curriedBytecode: hasCurriedFile ? curriedBytecode : "", // Empty if no currying
+        curriedBytecode: hasCurriedFile ? curriedBytecode : "",
         puzzleHash,
         puzzleAddress,
         errormessage: "",
       });
     } finally {
-      // Clean up temp files
-      try {
-        await unlink(clspPath).catch(() => {});
-        await unlink(hexPath).catch(() => {});
-        if (hasCurriedFile) {
-          await unlink(curriedPath).catch(() => {});
-        }
-      } catch (cleanupError) {
-        console.warn("Cleanup error:", cleanupError);
+      // 🧹 Clean up temp files
+      await unlink(clspPath).catch(() => {});
+      await unlink(hexPath).catch(() => {});
+      if (hasCurriedFile) {
+        await unlink(curriedPath).catch(() => {});
       }
     }
   } catch (error: any) {
@@ -193,21 +186,61 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 }
 
-// Helper function to format JavaScript values for Chialisp
-function formatChialispValue(value: string | number | boolean | null): string {
+function formatChialispValueForShell(value: any): string {
+  if (value === null || value === undefined) return "()";
+  if (typeof value === "number") return value.toString();
+  if (typeof value === "string") {
+    return `"${value.replace(/"/g, '\\"')}"`; // double-quoted and escaped
+  }
+  if (typeof value === "boolean") return value ? "1" : "()";
+  return `"${String(value)}"`; // fallback to string
+}
+
+function formatChialispValue(value: any): string {
   if (value === null || value === undefined) {
     return "()";
-  } else if (typeof value === "number") {
-    return value.toString();
-  } else if (typeof value === "string") {
-    if (value.startsWith("0x")) {
-      return value; // Hex bytes
-    } else {
-      return `"${value}"`; // Quoted string
-    }
-  } else if (typeof value === "boolean") {
-    return value ? "1" : "()";
-  } else {
-    return `"${value}"`;
   }
+  if (typeof value === "number") {
+    return value.toString();
+  }
+  if (typeof value === "string") {
+    return `'("${value}")'`; // no quotes needed for spawn
+  }
+  if (typeof value === "boolean") {
+    return value ? "1" : "()";
+  }
+  if (typeof value === "object" && typeof value.toString === "function") {
+    return value.toString();
+  }
+  throw new Error(`Unsupported value type: ${typeof value}`);
+}
+
+function runBrun(filePath: string, solutionArgs: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // 🧹 Strip shell quotes if accidentally included
+    const cleanArgs = solutionArgs.map((arg) =>
+      typeof arg === "string" ? arg.replace(/^["']|["']$/g, "") : arg
+    );
+
+    const brun = spawn("brun", ["-c", filePath, ...cleanArgs]);
+
+    let stdout = "";
+    let stderr = "";
+
+    brun.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    brun.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    brun.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(`brun failed (code ${code}): ${stderr.trim()}`));
+      }
+    });
+  });
 }

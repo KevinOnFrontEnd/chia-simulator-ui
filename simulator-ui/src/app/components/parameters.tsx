@@ -6,8 +6,8 @@ import * as sdk from 'chia-wallet-sdk-wasm';
 
 const { Clvm, sha256, Address, toHex } = sdk;
 
-interface Parameter {
-  type: 'Text' | 'Int' | 'SHA256' | 'Bool' | 'Nil' | 'Address';
+export interface Parameter {
+  type: "Text" | "Int" | "SHA256" | "Bool" | "Nil" | "Address";
   value: any; // CLVM type from sdk
   originalValue?: string;
   puzzleHashHex?: string;
