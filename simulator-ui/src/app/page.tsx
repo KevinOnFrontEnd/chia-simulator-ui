@@ -9,6 +9,7 @@ import TerminalPanel from './components/terminal';
 import Output from './components/output';
 import type * as monaco from 'monaco-editor';
 import { CDVCommandRequest } from "./api/cdv/route";
+import * as sdk from "chia-wallet-sdk-wasm";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -16,7 +17,8 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
 
 type Parameter = {
   type: "Text" | "Int" | "Nil" | string;
-  value: any;
+  value: string | number;
+  originalValue: any;
 };
 
 type HistoryItem = {
@@ -48,6 +50,33 @@ export default function Home() {
   const [puzzleHash, setPuzzleHash] = useState<string>("");
   const [puzzleAddress, setPuzzleAddress] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"output" | "terminal">("output");
+
+  const { Clvm, toHex, Address } = sdk;
+  const clvm = new Clvm();
+  const program = clvm.parse(`
+    (mod (A B)
+      (defun multiply (X Y)
+        (* X Y)
+      )
+      (multiply A B)
+    )
+  `);
+  const compiled = program.compile();
+  const i1 = BigInt(6);
+  const i2 = BigInt(10);
+  const p1 = clvm.int(i1);
+  const p2 = clvm.int(i2);
+
+  // Curry the arguments into the program
+  const curriedProgram = compiled.value.curry([p1]);
+  const i3 = BigInt(100000000);
+
+  const programList = clvm.list([p2]);
+  const output2 = curriedProgram.run(programList, i3, false);
+
+  console.log("run output:");
+  console.log(output2.cost);
+  console.log(output2.value.unparse());
 
   useEffect(() => {
     fetchBlockHeight();
@@ -109,7 +138,8 @@ export default function Home() {
       const curried = programCurriedParameters.map((param) => {
         switch (param.type) {
           case "Text":
-            return param.value as string;
+            console.log(param);
+            return param.originalValue as string;
           case "Int":
             return Number(param.value?.toInt?.()) ?? 0; // Returns number
           case "Boolean":

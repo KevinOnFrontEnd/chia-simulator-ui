@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler" // 👈 Only Vitest needs this
+  },
+  "include": ["tests", "src", "vitest.config.ts"]
+}
